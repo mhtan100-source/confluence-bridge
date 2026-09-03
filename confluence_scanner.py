@@ -29,10 +29,13 @@ app = Flask(__name__)
 # 設定（可透過Railway環境變數覆蓋，預設值取自MH目前的兩個scanner）
 # ============================================================
 VCP_URL        = os.environ.get('VCP_URL', 'https://web-production-f3d46.up.railway.app')
-SMC_URL        = os.environ.get('SMC_URL', 'https://smc-production.up.railway.app')
-CONFLUENCE_URL = os.environ.get('CONFLUENCE_URL', 'https://claude.ai/code/artifact/232449ef-6415-4cb4-bfa2-0b282d2c2e77')
+SMC_URL        = os.environ.get('SMC_URL', 'https://smc-scanner-production.up.railway.app')
+# 預設改成同一個服務裡的 /checklist（相對路徑）——claude.ai上的Artifact頁面因為安全沙盒機制，
+# 收不到網址上的?symbol=...等參數，帶入功能一定會失效；改成自己Railway上的頁面就沒有這個限制。
+CONFLUENCE_URL = os.environ.get('CONFLUENCE_URL', '/checklist')
 POLL_SECONDS   = int(os.environ.get('POLL_SECONDS', 5 * 60))
 REQUEST_TIMEOUT = 25
+CHECKLIST_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'checklist.html')
 TF_LABELS = ['5M', '15M', '30M', '1H', '4H', '1D']
 STAGE_MAP = {'1': 'S1', '2': 'S2', '3': 'S3', '4': 'S4'}
 
@@ -311,6 +314,25 @@ def index():
 def refresh():
     threading.Thread(target=run_bridge_scan, daemon=True).start()
     return Response('ok', mimetype='text/plain')
+
+@app.route('/checklist')
+def checklist():
+    """VCP Confluence 儀表——原本是claude.ai的Artifact，因為Artifact的沙盒機制讀不到網址參數，
+    改成由這個服務直接提供同一份頁面，這樣「帶入Confluence →」的自動帶入才會真的生效。"""
+    try:
+        with open(CHECKLIST_FILE, 'r', encoding='utf-8') as f:
+            body = f.read()
+    except FileNotFoundError:
+        return Response('checklist.html 沒有找到，請確認它跟 confluence_scanner.py 放在同一個資料夾一起上傳。', status=500, mimetype='text/plain')
+    # checklist.html 本身沒有 <!DOCTYPE>/<html>/<head> 包裝（原本是給claude.ai Artifact用，那邊會自動包），
+    # 這裡自己補上，順便明確宣告UTF-8，避免中文字顯示亂碼。
+    html = (
+        '<!doctype html><html lang="zh-TW"><head>'
+        '<meta charset="UTF-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '</head><body>' + body + '</body></html>'
+    )
+    return Response(html, mimetype='text/html')
 
 @app.route('/status')
 def status():

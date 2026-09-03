@@ -1,0 +1,711 @@
+<title>VCP Confluence 儀表</title>
+<style>
+:root{
+  --bg:#10141c; --surface:#171d29; --surface-2:#1e2530; --surface-3:#252d3b;
+  --border:#2a3244; --border-soft:#20283a;
+  --text:#e8ecf3; --text-muted:#8b95a8; --text-faint:#5c6577;
+  --accent:#c99a52; --accent-soft:rgba(201,154,82,0.14); --accent-strong:#e0b56e;
+  --good:#3ecf8e; --good-soft:rgba(62,207,142,0.13);
+  --warn:#eaa53c; --warn-soft:rgba(234,165,60,0.14);
+  --bad:#e0565c; --bad-soft:rgba(224,86,92,0.14);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f2f4f7; --surface:#ffffff; --surface-2:#eaedf2; --surface-3:#e0e4ea;
+    --border:#d7dce3; --border-soft:#e3e7ec;
+    --text:#171b26; --text-muted:#626c7c; --text-faint:#97a0af;
+    --accent:#96682c; --accent-soft:rgba(150,104,44,0.10); --accent-strong:#7a5322;
+    --good:#1f9d67; --good-soft:rgba(31,157,103,0.10);
+    --warn:#b3760f; --warn-soft:rgba(179,118,15,0.10);
+    --bad:#c23b41; --bad-soft:rgba(194,59,65,0.10);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f2f4f7; --surface:#ffffff; --surface-2:#eaedf2; --surface-3:#e0e4ea;
+  --border:#d7dce3; --border-soft:#e3e7ec;
+  --text:#171b26; --text-muted:#626c7c; --text-faint:#97a0af;
+  --accent:#96682c; --accent-soft:rgba(150,104,44,0.10); --accent-strong:#7a5322;
+  --good:#1f9d67; --good-soft:rgba(31,157,103,0.10);
+  --warn:#b3760f; --warn-soft:rgba(179,118,15,0.10);
+  --bad:#c23b41; --bad-soft:rgba(194,59,65,0.10);
+  color-scheme: light;
+}
+
+*{box-sizing:border-box;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'Noto Sans TC','Noto Sans',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{ background:var(--accent-soft); color:var(--accent-strong); }
+
+.serif{ font-family:'Noto Serif TC','Noto Serif',serif; }
+.mono{ font-family:'IBM Plex Mono','SFMono-Regular',Consolas,monospace; font-variant-numeric:tabular-nums; }
+
+.app{ max-width:760px; margin:0 auto; padding:0 16px 64px; }
+
+/* ---------- Sticky verdict gauge ---------- */
+.gauge-wrap{
+  position:sticky; top:0; z-index:20;
+  background:linear-gradient(var(--bg) 82%, transparent);
+  padding:14px 0 10px;
+}
+.gauge{
+  display:flex; align-items:center; gap:14px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:14px; padding:14px 18px;
+  box-shadow:0 8px 24px -12px rgba(0,0,0,0.35);
+}
+.gauge-state{
+  flex:0 0 auto; min-width:104px; text-align:center;
+  padding:9px 6px; border-radius:10px;
+  font-family:'Noto Serif TC',serif; font-weight:700; font-size:1.02rem; letter-spacing:.04em;
+  border:1px solid transparent;
+}
+.gauge-state.go{ background:var(--good-soft); color:var(--good); border-color:color-mix(in srgb, var(--good) 40%, transparent); }
+.gauge-state.caution{ background:var(--warn-soft); color:var(--warn); border-color:color-mix(in srgb, var(--warn) 40%, transparent); }
+.gauge-state.nogo{ background:var(--bad-soft); color:var(--bad); border-color:color-mix(in srgb, var(--bad) 40%, transparent); }
+.gauge-mid{ flex:1 1 auto; min-width:0; }
+.gauge-reason{ font-size:.82rem; color:var(--text-muted); line-height:1.5; }
+.gauge-stats{ display:flex; gap:16px; flex:0 0 auto; }
+.gauge-stat{ text-align:right; }
+.gauge-stat .n{ font-size:1.05rem; font-weight:600; }
+.gauge-stat .l{ font-size:.68rem; color:var(--text-faint); letter-spacing:.05em; text-transform:uppercase; }
+
+@media (max-width:600px){
+  .gauge{ flex-wrap:wrap; }
+  .gauge-stats{ width:100%; justify-content:space-between; order:3; padding-top:8px; border-top:1px solid var(--border-soft); margin-top:4px; }
+}
+
+/* ---------- Header ---------- */
+header.page{ padding:28px 0 6px; }
+header.page h1{
+  font-family:'Noto Serif TC',serif; font-weight:700; font-size:1.7rem;
+  margin:0 0 6px; text-wrap:balance;
+}
+header.page p{ margin:0; color:var(--text-muted); font-size:.92rem; line-height:1.6; max-width:60ch; }
+
+/* ---------- Sections ---------- */
+section.panel{
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:14px; margin-top:16px; overflow:hidden;
+  border-left:3px solid var(--border);
+  transition:border-left-color .15s ease;
+}
+section.panel.state-pass{ border-left-color:var(--good); }
+section.panel.state-fail{ border-left-color:var(--bad); }
+section.panel.state-partial{ border-left-color:var(--warn); }
+
+.panel-head{
+  display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  padding:16px 18px 4px;
+}
+.panel-eyebrow{
+  font-size:.7rem; letter-spacing:.09em; text-transform:uppercase; color:var(--text-faint);
+  font-weight:600;
+}
+.panel-head h2{
+  font-family:'Noto Serif TC',serif; font-size:1.12rem; font-weight:700; margin:2px 0 0;
+}
+.panel-badge{
+  font-size:.72rem; font-weight:600; padding:3px 10px; border-radius:999px;
+  white-space:nowrap;
+}
+.panel-badge.pass{ background:var(--good-soft); color:var(--good); }
+.panel-badge.fail{ background:var(--bad-soft); color:var(--bad); }
+.panel-badge.partial{ background:var(--warn-soft); color:var(--warn); }
+.panel-badge.neutral{ background:var(--surface-2); color:var(--text-muted); }
+
+.panel-body{ padding:6px 18px 18px; display:flex; flex-direction:column; gap:16px; }
+
+.field{ display:flex; flex-direction:column; gap:6px; }
+.field-label{ font-size:.86rem; font-weight:500; }
+.field-cap{ font-size:.76rem; color:var(--text-faint); line-height:1.5; }
+
+.row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:520px){ .row{ grid-template-columns:1fr; } }
+
+input[type="number"], input[type="text"]{
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+  border-radius:8px; padding:9px 11px; font-size:.92rem; width:100%;
+  font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;
+}
+input[type="number"]:focus, input[type="text"]:focus{
+  outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent);
+}
+
+/* chip toggle groups */
+.chips{ display:flex; flex-wrap:wrap; gap:8px; }
+.chip{
+  position:relative; display:inline-flex; align-items:center; gap:6px;
+  padding:7px 13px; border-radius:999px; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--text-muted);
+  font-size:.85rem; cursor:pointer; user-select:none;
+  transition:all .12s ease;
+}
+.chip input{ position:absolute; opacity:0; width:0; height:0; }
+.chip:has(input:checked){
+  background:var(--accent-soft); border-color:var(--accent); color:var(--accent-strong); font-weight:600;
+}
+.chip:has(input:focus-visible){ outline:2px solid var(--accent); outline-offset:2px; }
+.chip:hover{ border-color:var(--text-faint); }
+
+.check-row{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:10px 12px; border-radius:10px; background:var(--surface-2);
+  border:1px solid var(--border-soft); cursor:pointer;
+}
+.check-row input{ margin-top:3px; accent-color:var(--accent); width:16px; height:16px; flex:0 0 auto; }
+.check-row .t{ font-size:.86rem; }
+.check-row .d{ font-size:.76rem; color:var(--text-faint); margin-top:2px; }
+
+/* mini readouts */
+.readout-row{ display:flex; flex-wrap:wrap; gap:10px; }
+.readout{
+  flex:1 1 140px; background:var(--surface-2); border:1px solid var(--border-soft);
+  border-radius:10px; padding:10px 12px;
+}
+.readout .l{ font-size:.7rem; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; }
+.readout .v{ font-size:1.05rem; font-weight:600; margin-top:2px; }
+.readout .v.good{ color:var(--good); } .readout .v.warn{ color:var(--warn); } .readout .v.bad{ color:var(--bad); }
+
+.subnote{
+  font-size:.78rem; padding:9px 11px; border-radius:8px;
+  background:var(--surface-3); color:var(--text-muted); line-height:1.55;
+  border:1px dashed var(--border);
+}
+.subnote.warn{ background:var(--warn-soft); color:var(--warn); border-color:transparent; border-style:solid; }
+.subnote.bad{ background:var(--bad-soft); color:var(--bad); border-color:transparent; border-style:solid; }
+
+/* score dots for tier 2 */
+.score-dots{ display:flex; gap:6px; align-items:center; }
+.dot{ width:11px; height:11px; border-radius:50%; background:var(--surface-3); border:1px solid var(--border); }
+.dot.on{ background:var(--accent); border-color:var(--accent); }
+
+hr.div{ border:none; border-top:1px solid var(--border-soft); margin:2px 0; }
+
+/* position calc */
+.calc-out{
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px;
+}
+.calc-line{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:.88rem; }
+.calc-line .k{ color:var(--text-muted); }
+.calc-line .v{ font-weight:600; }
+.calc-line.total{ padding-top:10px; border-top:1px solid var(--border); }
+.calc-line.total .v{ font-size:1.25rem; color:var(--accent-strong); }
+
+button.reset{
+  margin-top:22px; background:transparent; color:var(--text-faint);
+  border:1px solid var(--border); border-radius:8px; padding:8px 14px;
+  font-size:.82rem; cursor:pointer;
+}
+button.reset:hover{ color:var(--text); border-color:var(--text-faint); }
+button.reset:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+footer.disc{
+  margin-top:26px; padding-top:16px; border-top:1px solid var(--border-soft);
+  font-size:.74rem; color:var(--text-faint); line-height:1.6;
+}
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<div class="app">
+
+  <div class="gauge-wrap">
+    <div class="gauge">
+      <div class="gauge-state caution" id="gaugeState">CAUTION</div>
+      <div class="gauge-mid">
+        <div class="gauge-reason" id="gaugeReason">請填入下方欄位</div>
+      </div>
+      <div class="gauge-stats">
+        <div class="gauge-stat">
+          <div class="n mono" id="gaugeT2">0/5</div>
+          <div class="l">Tier 2</div>
+        </div>
+        <div class="gauge-stat">
+          <div class="n mono" id="gaugeQty">—</div>
+          <div class="l">建議部位</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="page">
+    <h1>VCP Confluence 儀表</h1>
+    <p>老師的SOP不變：2C確認後於C高點+0.5%入場、2C最低點-0.5%止損。這份清單只做進場前的第二層思考——Tier 1不過就不進場，Tier 2用來決定倉位大小，SMC只當輔助確認、不當硬門檻。</p>
+    <div class="subnote" id="prefillBanner" hidden style="margin-top:12px;"></div>
+  </header>
+
+  <!-- 基本資料 -->
+  <section class="panel" id="panelBasic">
+    <div class="panel-head">
+      <div>
+        <div class="panel-eyebrow">Setup</div>
+        <h2>基本資料</h2>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="row">
+        <div class="field">
+          <label class="field-label" for="symbol">幣種</label>
+          <input type="text" id="symbol" placeholder="例：BTCUSDT">
+        </div>
+        <div class="field">
+          <label class="field-label">方向</label>
+          <div class="chips" id="directionChips">
+            <label class="chip"><input type="radio" name="direction" value="long" checked><span>多 Long</span></label>
+            <label class="chip"><input type="radio" name="direction" value="short"><span>空 Short</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label" for="cHigh">本次C高點</label>
+          <input type="number" id="cHigh" step="any" placeholder="0.0000">
+          <div class="field-cap">2C確認所依據的那個C，其擺動高點</div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="cLow">本次C低點</label>
+          <input type="number" id="cLow" step="any" placeholder="0.0000">
+          <div class="field-cap">同一個C的擺動低點</div>
+        </div>
+      </div>
+      <div class="readout-row">
+        <div class="readout"><div class="l">建議進場</div><div class="v mono" id="outEntry">—</div></div>
+        <div class="readout"><div class="l">建議止損</div><div class="v mono" id="outStop">—</div></div>
+        <div class="readout"><div class="l">風險距離</div><div class="v mono" id="outRisk">—</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tier 1 -->
+  <section class="panel" id="panelTier1">
+    <div class="panel-head">
+      <div>
+        <div class="panel-eyebrow">Tier 1 · 必要條件</div>
+        <h2>缺一不進場</h2>
+      </div>
+      <div class="panel-badge neutral" id="badgeTier1">—</div>
+    </div>
+    <div class="panel-body">
+
+      <div class="field">
+        <label class="field-label">C結構品質</label>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="cCount" value="1"><span>1C</span></label>
+          <label class="chip"><input type="radio" name="cCount" value="2" checked><span>2C</span></label>
+          <label class="chip"><input type="radio" name="cCount" value="3"><span>3C以上</span></label>
+        </div>
+        <div class="field-cap">2C是老師SOP的最低門檻；只有1C不算確認，不進場</div>
+        <div class="row" style="margin-top:4px;">
+          <div class="field">
+            <label class="field-label" for="lastCPct">最後一C收斂幅度 %</label>
+            <input type="number" id="lastCPct" step="any" placeholder="例：6.5">
+          </div>
+          <label class="check-row" style="align-self:end;">
+            <input type="checkbox" id="volumeDry" checked>
+            <div><div class="t">最後一C期間量能低於MA50均量（量縮）</div></div>
+          </label>
+        </div>
+        <div class="subnote" id="cQualityNote">—</div>
+      </div>
+
+      <hr class="div">
+
+      <div class="field">
+        <label class="field-label">日線 Stage</label>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="stage" value="S1"><span>S1</span></label>
+          <label class="chip"><input type="radio" name="stage" value="S2" checked><span>S2</span></label>
+          <label class="chip"><input type="radio" name="stage" value="S3"><span>S3</span></label>
+          <label class="chip"><input type="radio" name="stage" value="S4"><span>S4</span></label>
+        </div>
+        <div class="field-cap">做多需要S2、做空需要S4——跟方向不一致就是逆勢單</div>
+      </div>
+
+      <hr class="div">
+
+      <div class="field">
+        <label class="field-label">4H HTF 趨勢</label>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="htf" value="bull" checked><span>多頭</span></label>
+          <label class="chip"><input type="radio" name="htf" value="bear"><span>空頭</span></label>
+          <label class="chip"><input type="radio" name="htf" value="unclear"><span>不明確</span></label>
+        </div>
+        <div class="field-cap">4H方向要跟進場方向一致；不明確一律不進</div>
+      </div>
+
+      <hr class="div">
+
+      <div class="field">
+        <label class="field-label">BTC 大盤情境</label>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="btc" value="A" checked><span>A · BTC正常S2/S4</span></label>
+          <label class="chip"><input type="radio" name="btc" value="B"><span>B · BTC轉弱但此幣抗跌</span></label>
+          <label class="chip"><input type="radio" name="btc" value="C"><span>C · BTC劇烈下跌</span></label>
+        </div>
+        <div id="btcExtra" hidden>
+          <label class="check-row" style="margin-top:10px;">
+            <input type="checkbox" id="rsStress">
+            <div>
+              <div class="t">相對強度硬測試通過：BTC最近下跌段，此幣沒有跌破前低</div>
+              <div class="d">情境B必須這項成立才放行；通過也要倉位上限抓滿倉一半以下＋收緊停損</div>
+            </div>
+          </label>
+        </div>
+        <div class="subnote bad" id="btcCNote" hidden>情境C：無論形態多漂亮，直接放棄這筆，不進場。</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Tier 2 -->
+  <section class="panel" id="panelTier2">
+    <div class="panel-head">
+      <div>
+        <div class="panel-eyebrow">Tier 2 · 加分confluence</div>
+        <h2>決定倉位大小</h2>
+      </div>
+      <div class="panel-badge neutral" id="badgeTier2">0/5</div>
+    </div>
+    <div class="panel-body">
+
+      <div class="row">
+        <div class="field">
+          <label class="field-label" for="rsScore">相對強度分數（-5 ~ +5，該幣/BTC）</label>
+          <input type="number" id="rsScore" step="1" min="-5" max="5" placeholder="0">
+          <div class="field-cap">做多要正分、做空要負分才算方向一致</div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="volMult">突破量能倍數（相對MA50均量）</label>
+          <input type="number" id="volMult" step="any" placeholder="例：1.4">
+          <div class="field-cap">≥1.3倍視為有效放量突破</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">進場區間</label>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="zone" value="pivot" checked><span>Pivot</span></label>
+          <label class="chip"><input type="radio" name="zone" value="cheat"><span>Cheat</span></label>
+          <label class="chip"><input type="radio" name="zone" value="lcheat"><span>LCheat</span></label>
+        </div>
+        <div class="field-cap">C1區間上2/3（Pivot/Cheat）優先；LCheat偏冒進，不加分</div>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="atr14">ATR(14)（進場所用時框）</label>
+        <input type="number" id="atr14" step="any" placeholder="0.0000">
+        <div class="field-cap">風險距離至少要有0.5倍ATR，止損才不容易被噪音掃到</div>
+        <div class="subnote" id="atrNote">—</div>
+      </div>
+
+      <hr class="div">
+
+      <div class="field">
+        <label class="field-label">SMC 情境確認（軟性，非必要，2/3即算通過）</label>
+        <label class="check-row"><input type="checkbox" id="smcHtf"><div><div class="t">HTF結構方向沒有明顯跟進場方向相反</div></div></label>
+        <label class="check-row"><input type="checkbox" id="smcKz"><div><div class="t">目前在Killzone時段（倫敦15:00-18:00 / 紐約20:00-23:00 MYT）</div></div></label>
+        <label class="check-row"><input type="checkbox" id="smcLiq"><div><div class="t">止損位附近沒有明顯還沒被掃過的流動性池</div></div></label>
+        <div class="subnote warn" id="eqHint" hidden>⚠ SMC掃描器顯示這個方向的HTF有Equal High(s)/Low(s)——如果你的止損剛好卡在那附近，容易被反手掃單，進場前自己對一下位置。</div>
+      </div>
+
+      <div class="score-dots" id="scoreDots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 部位試算 -->
+  <section class="panel" id="panelCalc">
+    <div class="panel-head">
+      <div>
+        <div class="panel-eyebrow">Position Sizing</div>
+        <h2>部位試算</h2>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="row">
+        <div class="field">
+          <label class="field-label" for="accountSize">帳戶總資金</label>
+          <input type="number" id="accountSize" step="any" placeholder="例：10000">
+        </div>
+        <div class="field">
+          <label class="field-label" for="riskPct">單筆風險 %</label>
+          <input type="number" id="riskPct" step="any" placeholder="例：0.75">
+        </div>
+      </div>
+      <div class="calc-out">
+        <div class="calc-line"><span class="k">風險金額</span><span class="v mono" id="calcRiskAmt">—</span></div>
+        <div class="calc-line"><span class="k">每單位風險</span><span class="v mono" id="calcUnitRisk">—</span></div>
+        <div class="calc-line"><span class="k">倉位縮放（Tier 2 + BTC情境）</span><span class="v mono" id="calcMultiplier">—</span></div>
+        <div class="calc-line total"><span class="k">建議部位數量</span><span class="v mono" id="calcQty">—</span></div>
+        <div class="calc-line"><span class="k">名目倉位價值</span><span class="v mono" id="calcNotional">—</span></div>
+      </div>
+    </div>
+  </section>
+
+  <button class="reset" id="resetBtn" type="button">重置清單</button>
+
+  <footer class="disc">
+    此工具只是把你們自己的判斷條件結構化，不是自動交易訊號、也不構成投資建議；每加一層過濾都建議先回測或紙上交易驗證一段時間，再決定要不要全倉採用。帳戶資金/風險%會存在這個瀏覽器裡方便下次使用，其餘欄位不會被記住。
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const radios = name => document.querySelectorAll('input[name="'+name+'"]');
+  const getRadio = name => { const el=[...radios(name)].find(r=>r.checked); return el?el.value:null; };
+
+  function fmtPrice(n){
+    if(n===null || n===undefined || !isFinite(n)) return '—';
+    const abs = Math.abs(n);
+    let digits;
+    if(abs>=1000) digits=2; else if(abs>=1) digits=4; else if(abs>=0.01) digits=6; else digits=8;
+    return n.toLocaleString('en-US',{minimumFractionDigits:0, maximumFractionDigits:digits});
+  }
+  function fmtQty(n){
+    if(n===null || n===undefined || !isFinite(n)) return '—';
+    const abs = Math.abs(n);
+    let digits = abs>=100 ? 2 : abs>=1 ? 3 : 6;
+    return n.toLocaleString('en-US',{minimumFractionDigits:0, maximumFractionDigits:digits});
+  }
+  function fmtMoney(n){
+    if(n===null || n===undefined || !isFinite(n)) return '—';
+    return n.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function num(id){
+    const v = parseFloat($(id).value);
+    return isFinite(v) ? v : null;
+  }
+
+  // restore lightly persisted convenience fields
+  try{
+    const saved = JSON.parse(localStorage.getItem('vcpConfluenceAccount')||'null');
+    if(saved){
+      if(saved.accountSize!=null) $('accountSize').value = saved.accountSize;
+      if(saved.riskPct!=null) $('riskPct').value = saved.riskPct;
+    }
+  }catch(e){}
+  function persistAccount(){
+    try{
+      localStorage.setItem('vcpConfluenceAccount', JSON.stringify({
+        accountSize: $('accountSize').value, riskPct: $('riskPct').value
+      }));
+    }catch(e){}
+  }
+
+  function setPanelState(panelId, badgeId, state, label){
+    const panel = $(panelId), badge = $(badgeId);
+    panel.classList.remove('state-pass','state-fail','state-partial');
+    badge.classList.remove('pass','fail','partial','neutral');
+    if(state==='pass'){ panel.classList.add('state-pass'); badge.classList.add('pass'); }
+    else if(state==='fail'){ panel.classList.add('state-fail'); badge.classList.add('fail'); }
+    else if(state==='partial'){ panel.classList.add('state-partial'); badge.classList.add('partial'); }
+    else { badge.classList.add('neutral'); }
+    badge.textContent = label;
+  }
+
+  function render(){
+    const direction = getRadio('direction') || 'long';
+    const cHigh = num('cHigh'), cLow = num('cLow');
+    let entry=null, stop=null, riskDist=null;
+    if(cHigh!==null && cLow!==null && cHigh>cLow){
+      if(direction==='long'){ entry = cHigh*1.005; stop = cLow*0.995; }
+      else { entry = cLow*0.995; stop = cHigh*1.005; }
+      riskDist = Math.abs(entry-stop);
+    }
+    $('outEntry').textContent = fmtPrice(entry);
+    $('outStop').textContent = fmtPrice(stop);
+    $('outRisk').textContent = riskDist!==null ? fmtPrice(riskDist) : '—';
+
+    // ---- Tier 1 ----
+    const cCount = getRadio('cCount');
+    const lastCPct = num('lastCPct');
+    const volumeDry = $('volumeDry').checked;
+    const cQualityPass = (cCount==='2' || cCount==='3') && volumeDry;
+    const note = $('cQualityNote');
+    if(cCount==='1'){
+      note.textContent = '只有1C，還沒有2C確認，這不是進場訊號。';
+      note.className='subnote bad';
+    } else if(!volumeDry){
+      note.textContent = '量沒有縮，收縮品質存疑，建議先觀察。';
+      note.className='subnote warn';
+    } else if(lastCPct!==null && (lastCPct<3 || lastCPct>12)){
+      note.textContent = '收斂幅度('+lastCPct+'%)落在健康區間(約3%~12%)之外，重新確認結構是否成立。';
+      note.className='subnote warn';
+    } else {
+      note.textContent = 'C結構品質通過：2C以上＋量縮'+(lastCPct!==null?'，收斂幅度在健康區間內。':'。');
+      note.className='subnote';
+    }
+
+    const stage = getRadio('stage');
+    const stagePass = (direction==='long' && stage==='S2') || (direction==='short' && stage==='S4');
+
+    const htf = getRadio('htf');
+    const htfPass = (direction==='long' && htf==='bull') || (direction==='short' && htf==='bear');
+
+    const btc = getRadio('btc');
+    $('btcExtra').hidden = (btc!=='B');
+    $('btcCNote').hidden = (btc!=='C');
+    const rsStress = $('rsStress').checked;
+    let btcPass, btcHardNoGo=false, btcCapMultiplier=1;
+    if(btc==='A'){ btcPass = true; }
+    else if(btc==='B'){ btcPass = rsStress; if(rsStress) btcCapMultiplier = 0.5; }
+    else { btcPass = false; btcHardNoGo = true; }
+
+    const tier1AllPass = cQualityPass && stagePass && htfPass && btcPass;
+    if(btcHardNoGo){ setPanelState('panelTier1','badgeTier1','fail','情境C · 放棄'); }
+    else { setPanelState('panelTier1','badgeTier1', tier1AllPass?'pass':'fail', tier1AllPass?'全部通過':'未通過'); }
+
+    // ---- Tier 2 ----
+    const rsScore = num('rsScore');
+    const rsPass = rsScore!==null && ((direction==='long' && rsScore>0) || (direction==='short' && rsScore<0));
+
+    const volMult = num('volMult');
+    const volPass = volMult!==null && volMult>=1.3;
+
+    const zone = getRadio('zone');
+    const zonePass = zone!=='lcheat';
+
+    const atr14 = num('atr14');
+    let atrPass=false;
+    const atrNote = $('atrNote');
+    if(atr14!==null && atr14>0 && riskDist!==null){
+      const ratio = riskDist/atr14;
+      atrPass = ratio>=0.5;
+      atrNote.textContent = '風險距離 / ATR14 = '+ratio.toFixed(2)+'x'+(atrPass?'（止損距離合理）':'（止損偏窄，容易被噪音掃到，建議縮小倉位而非改止損）');
+      atrNote.className = 'subnote'+(atrPass?'':' warn');
+    } else {
+      atrNote.textContent = '填入ATR14與上方C高低點後會自動計算比例';
+      atrNote.className = 'subnote';
+    }
+
+    const smcCount = [$('smcHtf').checked, $('smcKz').checked, $('smcLiq').checked].filter(Boolean).length;
+    const smcPass = smcCount>=2;
+
+    const tier2Score = [rsPass, volPass, zonePass, atrPass, smcPass].filter(Boolean).length;
+    $('badgeTier2').textContent = tier2Score+'/5';
+    $('badgeTier2').className = 'panel-badge ' + (tier2Score>=3?'pass':tier2Score>=1?'partial':'neutral');
+    [...document.querySelectorAll('#scoreDots .dot')].forEach((d,i)=> d.classList.toggle('on', i<tier2Score));
+    $('gaugeT2').textContent = tier2Score+'/5';
+
+    // ---- Verdict ----
+    let verdict, reason, posMultiplier;
+    if(btcHardNoGo){
+      verdict='nogo'; reason='BTC情境C：大盤劇烈下跌，無論個股形態如何都放棄。'; posMultiplier=0;
+    } else if(!tier1AllPass){
+      const fails=[];
+      if(!cQualityPass) fails.push('C結構');
+      if(!stagePass) fails.push('Stage');
+      if(!htfPass) fails.push('4H HTF');
+      if(!btcPass) fails.push('BTC情境');
+      verdict='nogo'; reason='Tier 1未通過：'+fails.join('、')+'。老師SOP的2C確認到位前，不建議進場。'; posMultiplier=0;
+    } else if(tier2Score>=3){
+      verdict='go'; reason='Tier 1全過、Tier 2 confluence '+tier2Score+'/5，可依風控倉位進場。'; posMultiplier=1*btcCapMultiplier;
+    } else if(tier2Score>=1){
+      verdict='caution'; reason='Tier 1過關但confluence只有'+tier2Score+'/5，建議倉位減半。'; posMultiplier=0.5*btcCapMultiplier;
+    } else {
+      verdict='caution'; reason='Tier 1過關但加分項全數缺席，建議倉位降到1/4或先觀望。'; posMultiplier=0.25*btcCapMultiplier;
+    }
+    if(btc==='B' && tier1AllPass){
+      reason += '（情境B：倉位已上限抓滿倉一半以下）';
+    }
+
+    $('gaugeState').className = 'gauge-state '+verdict;
+    $('gaugeState').textContent = verdict==='go'?'GO':verdict==='caution'?'CAUTION':'NO-GO';
+    $('gaugeReason').textContent = reason;
+
+    // ---- Position calc ----
+    const accountSize = num('accountSize'), riskPct = num('riskPct');
+    let riskAmt=null, qty=null, notional=null;
+    if(accountSize!==null && riskPct!==null){ riskAmt = accountSize*(riskPct/100); }
+    $('calcRiskAmt').textContent = riskAmt!==null ? fmtMoney(riskAmt) : '—';
+    $('calcUnitRisk').textContent = riskDist!==null ? fmtPrice(riskDist) : '—';
+    $('calcMultiplier').textContent = (posMultiplier*100).toFixed(0)+'%';
+    if(riskAmt!==null && riskDist && riskDist>0){
+      qty = (riskAmt/riskDist) * posMultiplier;
+      if(entry) notional = qty*entry;
+    }
+    $('calcQty').textContent = qty!==null ? fmtQty(qty) : '—';
+    $('calcNotional').textContent = notional!==null ? fmtMoney(notional) : '—';
+    $('gaugeQty').textContent = qty!==null ? fmtQty(qty) : '—';
+
+    persistAccount();
+  }
+
+  document.querySelectorAll('input').forEach(el=> el.addEventListener('input', render));
+  document.querySelectorAll('input[type=radio]').forEach(el=> el.addEventListener('change', render));
+
+  $('resetBtn').addEventListener('click', function(){
+    document.querySelectorAll('input[type=text], input[type=number]').forEach(el=>{
+      if(el.id!=='accountSize' && el.id!=='riskPct') el.value='';
+    });
+    document.querySelectorAll('input[type=checkbox]').forEach(el=>{ el.checked = (el.id==='volumeDry'); });
+    $('direction').value;
+    [...radios('direction')].forEach(r=> r.checked = r.value==='long');
+    [...radios('cCount')].forEach(r=> r.checked = r.value==='2');
+    [...radios('stage')].forEach(r=> r.checked = r.value==='S2');
+    [...radios('htf')].forEach(r=> r.checked = r.value==='bull');
+    [...radios('btc')].forEach(r=> r.checked = r.value==='A');
+    [...radios('zone')].forEach(r=> r.checked = r.value==='pivot');
+    render();
+  });
+
+  // ---- 從SMC掃描器帶入的網址參數（symbol / direction / smcHtf / smcKz / eqFlag）----
+  (function applyPrefill(){
+    let params;
+    try{ params = new URLSearchParams(location.search); }catch(e){ return; }
+    if(!params.has('symbol') && !params.has('direction')) return;
+
+    const symbol = params.get('symbol');
+    const direction = params.get('direction');
+    const smcHtf = params.get('smcHtf');
+    const smcKz = params.get('smcKz');
+    const eqFlag = params.get('eqFlag');
+    const stage = params.get('stage');
+    const cCount = params.get('cCount');
+    const lastCPct = params.get('lastCPct');
+    const zone = params.get('zone');
+    const rsScore = params.get('rsScore');
+
+    if(symbol) $('symbol').value = symbol;
+    if(direction==='long' || direction==='short'){
+      [...radios('direction')].forEach(r=> r.checked = (r.value===direction));
+    }
+    if(smcHtf==='1') $('smcHtf').checked = true;
+    if(smcKz==='1') $('smcKz').checked = true;
+    $('eqHint').hidden = (eqFlag!=='1');
+
+    if(stage && ['S1','S2','S3','S4'].includes(stage)){
+      [...radios('stage')].forEach(r=> r.checked = (r.value===stage));
+    }
+    if(cCount){
+      const cVal = (parseInt(cCount,10) >= 3) ? '3' : cCount;
+      [...radios('cCount')].forEach(r=> r.checked = (r.value===cVal));
+    }
+    if(lastCPct) $('lastCPct').value = lastCPct;
+    if(zone && ['pivot','cheat','lcheat'].includes(zone)){
+      [...radios('zone')].forEach(r=> r.checked = (r.value===zone));
+    }
+    if(rsScore!==null && rsScore!=='') $('rsScore').value = rsScore;
+
+    const banner = $('prefillBanner');
+    const parts = [];
+    if(symbol) parts.push(symbol);
+    if(direction) parts.push(direction==='long'?'多':'空');
+    if(stage) parts.push(stage);
+    banner.hidden = false;
+    banner.textContent = '已從掃描器帶入'+(parts.length?'　'+parts.join(' · ')+'　':'　')+'——C結構/Stage/區間/相對強度/HTF/Killzone已自動帶入，C的實際高低點價位、量縮、突破量能、ATR、流動性請自行核對。';
+  })();
+
+  render();
+})();
+</script>
