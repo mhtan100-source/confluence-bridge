@@ -145,7 +145,9 @@ def fetch_smc_context():
 # 算出來的東西：C高低點價位、ATR14、量縮比、最後3根收盤位置、上方空間、進場點等高點
 # 所有門檻都可以用Railway環境變數覆蓋。
 # ============================================================
-BYBIT_API          = os.environ.get('BYBIT_API', 'https://api.bybit.com')
+# Bybit的主網域對部分地區/機房IP會回403，依序嘗試這幾個官方網域（api.bytick.com是Bybit官方備用網域）
+BYBIT_HOSTS        = [h.strip() for h in os.environ.get('BYBIT_API', 'https://api.bybit.com,https://api.bytick.com').split(',') if h.strip()]
+BYBIT_HEADERS      = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'}
 VOL_DRY_MAX        = float(os.environ.get('VOL_DRY_MAX', 0.7))        # 最後一C均量 ÷ C之前MA50均量 < 此值＝量縮
 CLOSE_POS_MIN      = float(os.environ.get('CLOSE_POS_MIN', 0.6))      # 最後3根平均收盤位置（在C區間內）≥ 此值
 CLOSE_BARS         = int(os.environ.get('CLOSE_BARS', 3))             # 看最後幾根已收K線
@@ -162,14 +164,25 @@ BYBIT_INTERVAL = {'5M': '5', '15M': '15', '30M': '30', '1H': '60', '4H': '240', 
 
 def fetch_bybit_kline(symbol, tf_label, limit=1000):
     """回傳由舊到新的list[dict]：t(ms)/o/h/l/c/v；最後一根是還沒收完的K線"""
-    r = requests.get(f'{BYBIT_API}/v5/market/kline', params={
-        'category': 'linear', 'symbol': symbol,
-        'interval': BYBIT_INTERVAL[tf_label], 'limit': limit,
-    }, timeout=REQUEST_TIMEOUT)
-    r.raise_for_status()
-    data = r.json()
-    if data.get('retCode') != 0:
-        raise RuntimeError(f"Bybit回傳錯誤：{data.get('retMsg')}")
+    params = {'category': 'linear', 'symbol': symbol, 'interval': BYBIT_INTERVAL[tf_label], 'limit': limit}
+    errors = []
+    data = None
+    for host in BYBIT_HOSTS:
+        try:
+            r = requests.get(f'{host}/v5/market/kline', params=params, headers=BYBIT_HEADERS, timeout=REQUEST_TIMEOUT)
+            if r.status_code != 200:
+                errors.append(f'{host.split("//")[-1]} HTTP {r.status_code}')
+                continue
+            data = r.json()
+            if data.get('retCode') != 0:
+                errors.append(f'{host.split("//")[-1]} {data.get("retMsg")}')
+                data = None
+                continue
+            break
+        except requests.RequestException as e:
+            errors.append(f'{host.split("//")[-1]} {type(e).__name__}')
+    if data is None:
+        raise RuntimeError('Bybit行情讀取失敗：' + '、'.join(errors))
     rows = data['result']['list'][::-1]   # Bybit是新→舊，反轉成舊→新
     return [{'t': int(x[0]), 'o': float(x[1]), 'h': float(x[2]), 'l': float(x[3]),
              'c': float(x[4]), 'v': float(x[5])} for x in rows]
@@ -219,25 +232,34 @@ def enrich_signal(symbol, tf_label, direction):
     """回傳 (params dict, 說明文字list)。任何一項算不出來就略過該項，不影響其他項。"""
     notes, p = [], {}
     is_long = direction == 'long'
-    bars_all = fetch_bybit_kline(symbol, tf_label)
-    closed = bars_all[:-1]                       # 最後一根還沒收完，不列入計算
-    atr = calc_atr14(closed)
-    if atr:
-        p['atr14'] = f'{atr:.8g}'
 
+    # C高低點只需要VCP掃描器，就算Bybit行情讀不到也先帶入
     try:
         c = fetch_last_c(symbol, tf_label, direction)
     except Exception as e:
         c = None
         notes.append(f'讀取C高低點失敗（{type(e).__name__}）')
+    if c:
+        p['cHigh'] = f"{c['hv']:.8g}"
+        p['cLow'] = f"{c['lv']:.8g}"
+        p['cLabel'] = c.get('label') or ''
+
+    try:
+        bars_all = fetch_bybit_kline(symbol, tf_label)
+    except Exception as e:
+        notes.append(f'{e}——ATR/量縮/收盤位置/上方空間/等高點需手動判斷')
+        return p, notes
+    closed = bars_all[:-1]                       # 最後一根還沒收完，不列入計算
+    atr = calc_atr14(closed)
+    if atr:
+        p['atr14'] = f'{atr:.8g}'
+
     if not c:
         notes.append('VCP掃描器目前沒有這個方向的C資料，C高低點/量縮/收盤位置/上方空間/等高點需要手動判斷')
         return p, notes
 
     c_high, c_low = c['hv'], c['lv']
     rng = c_high - c_low
-    p['cHigh'] = f'{c_high:.8g}'
-    p['cLow'] = f'{c_low:.8g}'
     entry = c_high * 1.005 if is_long else c_low * 0.995
 
     # ① 量縮比：最後一C期間的均量 ÷ C開始前50根的均量
@@ -296,7 +318,6 @@ def enrich_signal(symbol, tf_label, direction):
                 eq_count += 1
             last_hit = i
     p['eqEntry'] = eq_count
-    p['cLabel'] = c.get('label') or ''
     # 門檻也一起帶過去，checklist用同一組數字判斷（改Railway環境變數兩邊會一致）
     p['vdMax'] = VOL_DRY_MAX
     p['cpMin'] = CLOSE_POS_MIN
