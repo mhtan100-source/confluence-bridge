@@ -223,7 +223,7 @@ footer.disc{
       </div>
       <div class="gauge-stats">
         <div class="gauge-stat">
-          <div class="n mono" id="gaugeT2">0/5</div>
+          <div class="n mono" id="gaugeT2">0/6</div>
           <div class="l">Tier 2</div>
         </div>
         <div class="gauge-stat">
@@ -236,7 +236,7 @@ footer.disc{
 
   <header class="page">
     <h1>VCP Confluence 儀表</h1>
-    <p>老師的SOP不變：2C確認後於C高點+0.5%入場、2C最低點-0.5%止損。這份清單只做進場前的第二層思考——Tier 1不過就不進場，Tier 2用來決定倉位大小，SMC只當輔助確認、不當硬門檻。</p>
+    <p>老師的SOP不變：2C確認後於C高點+0.5%入場、2C最低點-0.5%止損。這份清單只做掛單前的第二層思考——Tier 1不過就不進場，Tier 2用來決定倉位大小，SMC只當輔助確認、不當硬門檻。</p>
     <div class="subnote" id="prefillBanner" hidden style="margin-top:12px;"></div>
   </header>
 
@@ -308,7 +308,7 @@ footer.disc{
           </div>
           <label class="check-row" style="align-self:end;">
             <input type="checkbox" id="volumeDry" checked>
-            <div><div class="t">最後一C期間量能低於MA50均量（量縮）</div></div>
+            <div><div class="t">最後一C期間量能明顯低於之前MA50均量（量縮）</div><div class="d" id="volDryInfo">量縮比 = 最後一C均量 ÷ C開始前50根均量，&lt;0.7算量縮</div></div>
           </label>
         </div>
         <div class="subnote" id="cQualityNote">—</div>
@@ -370,7 +370,7 @@ footer.disc{
         <div class="panel-eyebrow">Tier 2 · 加分confluence</div>
         <h2>決定倉位大小</h2>
       </div>
-      <div class="panel-badge neutral" id="badgeTier2">0/5</div>
+      <div class="panel-badge neutral" id="badgeTier2">0/6</div>
     </div>
     <div class="panel-body">
 
@@ -381,10 +381,27 @@ footer.disc{
           <div class="field-cap">做多要正分、做空要負分才算方向一致</div>
         </div>
         <div class="field">
-          <label class="field-label" for="volMult">突破量能倍數（相對MA50均量）</label>
-          <input type="number" id="volMult" step="any" placeholder="例：1.4">
-          <div class="field-cap">≥1.3倍視為有效放量突破</div>
+          <label class="field-label" for="headroom">上方空間 %（進場價 → 最近日線前高）</label>
+          <input type="number" id="headroom" step="any" placeholder="例：6.5">
+          <label class="check-row" style="padding:6px 10px;"><input type="checkbox" id="noOverhead"><div><div class="t">上方沒有日線前高（藍天）</div></div></label>
+          <div class="field-cap" id="headroomCap">≥4%才算有空間；做空＝進場價到下方最近前低</div>
         </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">最後3根K線收盤位置</label>
+        <div class="row">
+          <div class="field">
+            <label class="field-label" for="closePos" style="font-weight:400">平均收盤位置（0~1，在C區間內）</label>
+            <input type="number" id="closePos" step="any" min="0" max="1" placeholder="例：0.72">
+          </div>
+          <div class="field">
+            <label class="field-label" for="wicks" style="font-weight:400">長上影線根數（做空＝長下影線）</label>
+            <input type="number" id="wicks" step="1" min="0" placeholder="例：0">
+          </div>
+        </div>
+        <div class="field-cap" id="closeCap">1＝收在C區間有利那一端（做多＝貼近C高點）。≥0.6且長影線≤1根才算買方有在吸收賣壓</div>
+        <div class="subnote" id="closeNote">—</div>
       </div>
 
       <div class="field">
@@ -407,15 +424,16 @@ footer.disc{
       <hr class="div">
 
       <div class="field">
-        <label class="field-label">SMC 情境確認（軟性，非必要，2/3即算通過）</label>
+        <label class="field-label">SMC 情境確認（軟性，非必要，4項中3項即算通過）</label>
         <label class="check-row"><input type="checkbox" id="smcHtf"><div><div class="t">HTF結構方向沒有明顯跟進場方向相反</div></div></label>
         <label class="check-row"><input type="checkbox" id="smcKz"><div><div class="t">目前在Killzone時段（倫敦15:00-18:00 / 紐約20:00-23:00 MYT）</div></div></label>
+        <label class="check-row"><input type="checkbox" id="smcEqEntry"><div><div class="t">進場點附近沒有等高點（做多＝C高點±0.3%內沒有其他擺動高點；做空＝低點）</div><div class="d" id="eqEntryInfo">等高點上方堆著停損單，+0.5%進場點容易剛好被「掃一下就回落」</div></div></label>
         <label class="check-row"><input type="checkbox" id="smcLiq"><div><div class="t">止損位附近沒有明顯還沒被掃過的流動性池</div></div></label>
         <div class="subnote warn" id="eqHint" hidden>⚠ SMC掃描器顯示這個方向的HTF有Equal High(s)/Low(s)——如果你的止損剛好卡在那附近，容易被反手掃單，進場前自己對一下位置。</div>
       </div>
 
       <div class="score-dots" id="scoreDots">
-        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
       </div>
 
     </div>
@@ -462,6 +480,7 @@ footer.disc{
 (function(){
   const $ = id => document.getElementById(id);
   const radios = name => document.querySelectorAll('input[name="'+name+'"]');
+  const THR = {vdMax:0.7, cpMin:0.6, maxWicks:1, hrMin:4};   // 會被網址參數覆蓋（跟橋接器的Railway環境變數一致）
   const getRadio = name => { const el=[...radios(name)].find(r=>r.checked); return el?el.value:null; };
 
   function fmtPrice(n){
@@ -485,6 +504,8 @@ footer.disc{
     const v = parseFloat($(id).value);
     return isFinite(v) ? v : null;
   }
+
+  let volDryRatio = null;   // 從橋接器帶入的量縮比（只做顯示，判斷看上面的勾選框）
 
   // restore lightly persisted convenience fields
   try{
@@ -530,6 +551,8 @@ footer.disc{
     const cCount = getRadio('cCount');
     const lastCPct = num('lastCPct');
     const volumeDry = $('volumeDry').checked;
+    $('volDryInfo').textContent = (volDryRatio!==null ? '量縮比 '+volDryRatio.toFixed(2)+'x（自動計算）；' : '')
+      + '量縮比 = 最後一C均量 ÷ C開始前50根均量，<'+THR.vdMax+'算量縮';
     const cQualityPass = (cCount==='2' || cCount==='3') && volumeDry;
     const note = $('cQualityNote');
     if(cCount==='1'){
@@ -569,8 +592,26 @@ footer.disc{
     const rsScore = num('rsScore');
     const rsPass = rsScore!==null && ((direction==='long' && rsScore>0) || (direction==='short' && rsScore<0));
 
-    const volMult = num('volMult');
-    const volPass = volMult!==null && volMult>=1.3;
+    const headroom = num('headroom');
+    const noOverhead = $('noOverhead').checked;
+    const headroomPass = noOverhead || (headroom!==null && headroom>=THR.hrMin);
+    $('headroomCap').textContent = '≥'+THR.hrMin+'%才算有空間；做空＝進場價到下方最近前低'
+      + (noOverhead ? '　✓ 藍天' : headroom!==null ? (headroomPass ? '　✓ 空間足夠' : '　✗ 上方很快碰到前高') : '');
+
+    const closePos = num('closePos');
+    const wicks = num('wicks');
+    const closePass = closePos!==null && closePos>=THR.cpMin && (wicks===null || wicks<=THR.maxWicks);
+    const closeNote = $('closeNote');
+    if(closePos===null){
+      closeNote.textContent = '填入平均收盤位置後自動判斷';
+      closeNote.className = 'subnote';
+    } else if(closePass){
+      closeNote.textContent = '收盤位置 '+closePos.toFixed(2)+(wicks!==null?'、長影線 '+wicks+' 根':'')+'：收盤貼近有利端，買方在吸收賣壓。';
+      closeNote.className = 'subnote';
+    } else {
+      closeNote.textContent = '收盤位置 '+closePos.toFixed(2)+(wicks!==null?'、長影線 '+wicks+' 根':'')+'：收在區間中下段或影線偏多，突破點附近有賣壓，假突破風險較高。';
+      closeNote.className = 'subnote warn';
+    }
 
     const zone = getRadio('zone');
     const zonePass = zone!=='lcheat';
@@ -588,14 +629,14 @@ footer.disc{
       atrNote.className = 'subnote';
     }
 
-    const smcCount = [$('smcHtf').checked, $('smcKz').checked, $('smcLiq').checked].filter(Boolean).length;
-    const smcPass = smcCount>=2;
+    const smcCount = [$('smcHtf').checked, $('smcKz').checked, $('smcEqEntry').checked, $('smcLiq').checked].filter(Boolean).length;
+    const smcPass = smcCount>=3;
 
-    const tier2Score = [rsPass, volPass, zonePass, atrPass, smcPass].filter(Boolean).length;
-    $('badgeTier2').textContent = tier2Score+'/5';
-    $('badgeTier2').className = 'panel-badge ' + (tier2Score>=3?'pass':tier2Score>=1?'partial':'neutral');
+    const tier2Score = [rsPass, closePass, headroomPass, zonePass, atrPass, smcPass].filter(Boolean).length;
+    $('badgeTier2').textContent = tier2Score+'/6';
+    $('badgeTier2').className = 'panel-badge ' + (tier2Score>=4?'pass':tier2Score>=2?'partial':'neutral');
     [...document.querySelectorAll('#scoreDots .dot')].forEach((d,i)=> d.classList.toggle('on', i<tier2Score));
-    $('gaugeT2').textContent = tier2Score+'/5';
+    $('gaugeT2').textContent = tier2Score+'/6';
 
     // ---- Verdict ----
     let verdict, reason, posMultiplier;
@@ -608,12 +649,12 @@ footer.disc{
       if(!htfPass) fails.push('4H HTF');
       if(!btcPass) fails.push('BTC情境');
       verdict='nogo'; reason='Tier 1未通過：'+fails.join('、')+'。老師SOP的2C確認到位前，不建議進場。'; posMultiplier=0;
-    } else if(tier2Score>=3){
-      verdict='go'; reason='Tier 1全過、Tier 2 confluence '+tier2Score+'/5，可依風控倉位進場。'; posMultiplier=1*btcCapMultiplier;
-    } else if(tier2Score>=1){
-      verdict='caution'; reason='Tier 1過關但confluence只有'+tier2Score+'/5，建議倉位減半。'; posMultiplier=0.5*btcCapMultiplier;
+    } else if(tier2Score>=4){
+      verdict='go'; reason='Tier 1全過、Tier 2 confluence '+tier2Score+'/6，可依風控倉位掛單。'; posMultiplier=1*btcCapMultiplier;
+    } else if(tier2Score>=2){
+      verdict='caution'; reason='Tier 1過關但confluence只有'+tier2Score+'/6，建議倉位減半。'; posMultiplier=0.5*btcCapMultiplier;
     } else {
-      verdict='caution'; reason='Tier 1過關但加分項全數缺席，建議倉位降到1/4或先觀望。'; posMultiplier=0.25*btcCapMultiplier;
+      verdict='caution'; reason='Tier 1過關但加分項只有'+tier2Score+'/6，建議倉位降到1/4或先不掛單。'; posMultiplier=0.25*btcCapMultiplier;
     }
     if(btc==='B' && tier1AllPass){
       reason += '（情境B：倉位已上限抓滿倉一半以下）';
@@ -649,13 +690,13 @@ footer.disc{
       if(el.id!=='accountSize' && el.id!=='riskPct') el.value='';
     });
     document.querySelectorAll('input[type=checkbox]').forEach(el=>{ el.checked = (el.id==='volumeDry'); });
-    $('direction').value;
     [...radios('direction')].forEach(r=> r.checked = r.value==='long');
     [...radios('cCount')].forEach(r=> r.checked = r.value==='2');
     [...radios('stage')].forEach(r=> r.checked = r.value==='S2');
     [...radios('htf')].forEach(r=> r.checked = r.value==='bull');
     [...radios('btc')].forEach(r=> r.checked = r.value==='A');
     [...radios('zone')].forEach(r=> r.checked = r.value==='pivot');
+    volDryRatio = null;
     render();
   });
 
@@ -697,13 +738,39 @@ footer.disc{
     }
     if(rsScore!==null && rsScore!=='') $('rsScore').value = rsScore;
 
+    // ---- 橋接器 /enrich 補算的掛單前數據 ----
+    const pf = k => { const v = params.get(k); if(v===null || v==='') return null; const n = parseFloat(v); return isFinite(n)?n:null; };
+    ['vdMax','cpMin','maxWicks','hrMin'].forEach(k=>{ const v = pf(k); if(v!==null) THR[k] = v; });
+    const auto = [];
+    if(pf('cHigh')!==null && pf('cLow')!==null){ $('cHigh').value = params.get('cHigh'); $('cLow').value = params.get('cLow'); auto.push('C高低點'); }
+    if(pf('atr14')!==null){ $('atr14').value = params.get('atr14'); auto.push('ATR14'); }
+    if(pf('volDry')!==null){ volDryRatio = pf('volDry'); $('volumeDry').checked = volDryRatio < THR.vdMax; auto.push('量縮'); }
+    if(pf('closePos')!==null){ $('closePos').value = params.get('closePos'); if(pf('wicks')!==null) $('wicks').value = params.get('wicks'); auto.push('收盤位置'); }
+    if(params.get('headroom')==='none'){ $('noOverhead').checked = true; $('headroom').value=''; auto.push('上方空間'); }
+    else if(pf('headroom')!==null){ $('noOverhead').checked = false; $('headroom').value = params.get('headroom'); auto.push('上方空間'); }
+    if(pf('eqEntry')!==null){
+      const eq = pf('eqEntry');
+      $('smcEqEntry').checked = (eq===0);
+      $('eqEntryInfo').textContent = eq===0 ? '自動檢查：C高點附近沒有其他等高點' : '⚠ 自動檢查：C高點±0.3%內找到 '+eq+' 個等高點，+0.5%進場點可能只是被掃停損';
+      auto.push('等高點');
+    }
+    const tf = params.get('tf');
+    const enrichNote = params.get('enrichNote');
+
     const banner = $('prefillBanner');
     const parts = [];
     if(symbol) parts.push(symbol);
     if(direction) parts.push(direction==='long'?'多':'空');
     if(stage) parts.push(stage);
+    if(tf) parts.push(tf);
+    const cLabel = params.get('cLabel');
     banner.hidden = false;
-    banner.textContent = '已從掃描器帶入'+(parts.length?'　'+parts.join(' · ')+'　':'　')+'——C結構/Stage/區間/相對強度/HTF/Killzone已自動帶入，C的實際高低點價位、量縮、突破量能、ATR、流動性請自行核對。';
+    banner.textContent = '已從掃描器帶入'+(parts.length?'　'+parts.join(' · ')+'　':'　')
+      + '——C結構/Stage/區間/相對強度/HTF/Killzone'
+      + (auto.length ? '，以及自動補算的'+auto.join('、')+(cLabel?'（依'+cLabel+'）':'') : '')
+      + '已帶入；止損側流動性請自行核對。'
+      + (enrichNote ? '　⚠ '+enrichNote : '');
+    if(enrichNote) banner.className = 'subnote warn';
   })();
 
   render();
