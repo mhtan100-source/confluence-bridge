@@ -465,13 +465,42 @@ footer.disc{
         <div class="calc-line total"><span class="k">建議部位數量</span><span class="v mono" id="calcQty">—</span></div>
         <div class="calc-line"><span class="k">名目倉位價值</span><span class="v mono" id="calcNotional">—</span></div>
       </div>
+
+      <div class="field" style="margin-top:6px;">
+        <label class="field-label">出場計劃（分批止盈 + 保本 + 移動止損）</label>
+        <div class="row">
+          <div class="field">
+            <label class="field-label" for="tpR" style="font-weight:400">第一段止盈在幾R</label>
+            <input type="number" id="tpR" step="any" placeholder="2">
+          </div>
+          <div class="field">
+            <label class="field-label" for="trailMult" style="font-weight:400">移動止損 = 幾倍ATR</label>
+            <input type="number" id="trailMult" step="any" placeholder="2.5">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="field-label" for="tpPct" style="font-weight:400">第一段平倉比例 %</label>
+            <input type="number" id="tpPct" step="any" placeholder="50">
+          </div>
+          <div></div>
+        </div>
+      </div>
+      <div class="calc-out">
+        <div class="calc-line"><span class="k">① 第一段止盈價</span><span class="v mono" id="exTp1">—</span></div>
+        <div class="calc-line"><span class="k">　第一段平倉數量</span><span class="v mono" id="exTp1Qty">—</span></div>
+        <div class="calc-line"><span class="k">② 到價後止損移到（保本BE）</span><span class="v mono" id="exBe">—</span></div>
+        <div class="calc-line total"><span class="k">③ Bybit移動止損「回撤距離」</span><span class="v mono" id="exTrail">—</span></div>
+        <div class="calc-line"><span class="k">　建議「啟動價格」</span><span class="v mono" id="exTrailAct">—</span></div>
+      </div>
+      <div class="subnote" id="exNote">填入上方C高低點與ATR14後自動計算。第一段止盈價可以直接當Bybit移動止損的啟動價格：到價前不會追蹤，到價後才開始跟著新高（做空＝新低）移動。</div>
     </div>
   </section>
 
   <button class="reset" id="resetBtn" type="button">重置清單</button>
 
   <footer class="disc">
-    此工具只是把你們自己的判斷條件結構化，不是自動交易訊號、也不構成投資建議；每加一層過濾都建議先回測或紙上交易驗證一段時間，再決定要不要全倉採用。帳戶資金/風險%會存在這個瀏覽器裡方便下次使用，其餘欄位不會被記住。
+    此工具只是把你們自己的判斷條件結構化，不是自動交易訊號、也不構成投資建議；每加一層過濾都建議先回測或紙上交易驗證一段時間，再決定要不要全倉採用。帳戶資金/風險%與出場計劃設定會存在這個瀏覽器裡方便下次使用，其餘欄位不會被記住。
   </footer>
 
 </div>
@@ -513,12 +542,16 @@ footer.disc{
     if(saved){
       if(saved.accountSize!=null) $('accountSize').value = saved.accountSize;
       if(saved.riskPct!=null) $('riskPct').value = saved.riskPct;
+      if(saved.tpR) $('tpR').value = saved.tpR;
+      if(saved.trailMult) $('trailMult').value = saved.trailMult;
+      if(saved.tpPct) $('tpPct').value = saved.tpPct;
     }
   }catch(e){}
   function persistAccount(){
     try{
       localStorage.setItem('vcpConfluenceAccount', JSON.stringify({
-        accountSize: $('accountSize').value, riskPct: $('riskPct').value
+        accountSize: $('accountSize').value, riskPct: $('riskPct').value,
+        tpR: $('tpR').value, trailMult: $('trailMult').value, tpPct: $('tpPct').value
       }));
     }catch(e){}
   }
@@ -677,6 +710,28 @@ footer.disc{
     }
     $('calcQty').textContent = qty!==null ? fmtQty(qty) : '—';
     $('calcNotional').textContent = notional!==null ? fmtMoney(notional) : '—';
+
+    // ---- 出場計劃 ----
+    const tpR = num('tpR') ?? 2, trailMult = num('trailMult') ?? 2.5, tpPct = num('tpPct') ?? 50;
+    let tp1=null, trail=null;
+    if(entry!==null && riskDist){
+      tp1 = direction==='long' ? entry + riskDist*tpR : entry - riskDist*tpR;
+    }
+    const atrNow = num('atr14');
+    if(atrNow!==null && atrNow>0) trail = atrNow*trailMult;
+    $('exTp1').textContent = tp1!==null ? fmtPrice(tp1)+'（+'+tpR+'R）' : '—';
+    $('exTp1Qty').textContent = qty!==null ? fmtQty(qty*tpPct/100)+'（'+tpPct+'%）' : (tp1!==null ? tpPct+'% 倉位' : '—');
+    $('exBe').textContent = entry!==null ? fmtPrice(entry) : '—';
+    $('exTrail').textContent = trail!==null ? fmtPrice(trail) : '—';
+    $('exTrailAct').textContent = tp1!==null ? fmtPrice(tp1) : '—';
+    const exNote = $('exNote');
+    if(trail!==null && riskDist && trail < riskDist*0.5){
+      exNote.textContent = '⚠ 移動止損距離('+fmtPrice(trail)+')不到風險距離的一半，容易被正常波動洗掉，可以考慮把倍數調高到3。';
+      exNote.className = 'subnote warn';
+    } else {
+      exNote.textContent = '填入上方C高低點與ATR14後自動計算。第一段止盈價可以直接當Bybit移動止損的啟動價格：到價前不會追蹤，到價後才開始跟著新高（做空＝新低）移動。';
+      exNote.className = 'subnote';
+    }
     $('gaugeQty').textContent = qty!==null ? fmtQty(qty) : '—';
 
     persistAccount();
@@ -687,7 +742,7 @@ footer.disc{
 
   $('resetBtn').addEventListener('click', function(){
     document.querySelectorAll('input[type=text], input[type=number]').forEach(el=>{
-      if(el.id!=='accountSize' && el.id!=='riskPct') el.value='';
+      if(!['accountSize','riskPct','tpR','trailMult','tpPct'].includes(el.id)) el.value='';
     });
     document.querySelectorAll('input[type=checkbox]').forEach(el=>{ el.checked = (el.id==='volumeDry'); });
     [...radios('direction')].forEach(r=> r.checked = r.value==='long');
