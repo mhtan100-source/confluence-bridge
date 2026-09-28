@@ -82,11 +82,10 @@ def fetch_vcp_signals():
 
         rs_text = tds[3].get_text(strip=True)
         rs_score = None
-        if rs_text not in ('--', ''):
-            try:
-                rs_score = int(rs_text.replace('+', ''))
-            except ValueError:
-                rs_score = None
+        # 力量欄格式是「+2 (106%)」（09-13加了百分比之後），只取前面的分數
+        m_rs = re.match(r'\s*([+-]?\d+)', rs_text)
+        if m_rs:
+            rs_score = int(m_rs.group(1))
 
         for i, tf in enumerate(TF_LABELS):
             td = tds[4 + i]

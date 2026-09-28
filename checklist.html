@@ -596,7 +596,7 @@ footer.disc{
     const noOverhead = $('noOverhead').checked;
     const headroomPass = noOverhead || (headroom!==null && headroom>=THR.hrMin);
     $('headroomCap').textContent = '≥'+THR.hrMin+'%才算有空間；做空＝進場價到下方最近前低'
-      + (noOverhead ? '　✓ 藍天' : headroom!==null ? (headroomPass ? '　✓ 空間足夠' : '　✗ 上方很快碰到前高') : '');
+      + (noOverhead ? '　✓ 藍天' : headroom!==null ? (headroomPass ? '　✓ 空間足夠' : (direction==='short' ? '　✗ 下方很快碰到前低' : '　✗ 上方很快碰到前高')) : '');
 
     const closePos = num('closePos');
     const wicks = num('wicks');
@@ -751,7 +751,10 @@ footer.disc{
     if(pf('eqEntry')!==null){
       const eq = pf('eqEntry');
       $('smcEqEntry').checked = (eq===0);
-      $('eqEntryInfo').textContent = eq===0 ? '自動檢查：C高點附近沒有其他等高點' : '⚠ 自動檢查：C高點±0.3%內找到 '+eq+' 個等高點，+0.5%進場點可能只是被掃停損';
+      const isShort = (direction==='short');
+      const refWord = isShort ? 'C低點' : 'C高點';
+      $('eqEntryInfo').textContent = eq===0 ? '自動檢查：'+refWord+'附近沒有其他'+(isShort?'等低點':'等高點')
+        : '⚠ 自動檢查：'+refWord+'±0.3%內找到 '+eq+' 個'+(isShort?'等低點，-0.5%':'等高點，+0.5%')+'進場點可能只是被掃停損';
       auto.push('等高點');
     }
     const tf = params.get('tf');
